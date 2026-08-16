@@ -146,7 +146,7 @@ p{ margin:0; }
 .btn:disabled{ opacity:.45; cursor:default; }
 
 /* ---------- List / page screen ---------- */
-.screen{ max-width: 720px; margin: 0 auto; padding: 0 18px 40px; }
+.screen{ max-width: 720px; margin: 0 auto; padding: max(14px, env(safe-area-inset-top)) 18px 40px; }
 .page-header{ display:flex; align-items:center; gap:14px; padding: 10px 0 18px; }
 .page-header__blob{
   width:56px; height:56px; border-radius: 46% 54% 58% 42% / 48% 44% 56% 52%;
@@ -163,7 +163,7 @@ p{ margin:0; }
 .mode-card__sub{ font-size:12px; color: var(--ink-soft); margin-top:2px; }
 
 /* ---------- Game screens ---------- */
-.game-wrap{ max-width: 640px; margin:0 auto; padding: 10px 18px 40px; }
+.game-wrap{ max-width: 640px; margin:0 auto; padding: max(14px, env(safe-area-inset-top)) 18px 40px; }
 .progress-track{
   height:10px; background: var(--paper-deep); border-radius:999px; overflow:hidden; margin-bottom:18px;
 }
@@ -234,6 +234,12 @@ p{ margin:0; }
 .feedback-banner.show{ transform: translateY(0); }
 .feedback-banner.correct{ background: var(--leaf-deep); }
 .feedback-banner.incorrect{ background: var(--coral-deep); }
+.btn-next{
+  font-family: var(--font-display); font-weight:700; font-size:15px; color:#fff;
+  background: rgba(255,255,255,0.22); border: 2px solid rgba(255,255,255,0.65);
+  border-radius:999px; padding:9px 16px; cursor:pointer; flex-shrink:0; min-height:40px;
+}
+.btn-next:active{ background: rgba(255,255,255,0.35); }
 
 /* ---------- Session summary ---------- */
 .summary-card{ text-align:center; }
@@ -242,14 +248,14 @@ p{ margin:0; }
 .summary-stat:last-child{ border-bottom:none; }
 
 /* ---------- Parent gate & dashboard ---------- */
-.gate-wrap{ max-width:420px; margin: 60px auto; padding: 0 20px; text-align:center; }
+.gate-wrap{ max-width:420px; margin: 20px auto 0; padding: max(50px, calc(env(safe-area-inset-top) + 36px)) 20px 0; text-align:center; }
 .gate-math{ font-family: var(--font-display); font-size:36px; font-weight:800; margin: 18px 0; }
 .gate-input{
   font-family: var(--font-display); font-size:28px; text-align:center; width:120px;
   padding:10px; border-radius: var(--radius-sm); border:2px solid var(--paper-deep); margin-bottom:16px;
 }
 
-.dash{ max-width: 860px; margin:0 auto; padding: 20px 18px 60px; }
+.dash{ max-width: 860px; margin:0 auto; padding: max(20px, env(safe-area-inset-top)) 18px 60px; }
 .dash h2{ font-size:22px; margin-bottom:4px; }
 .dash-sub{ color: var(--ink-soft); font-size:14px; margin-bottom:20px; }
 .stat-grid{ display:grid; grid-template-columns: repeat(3,1fr); gap:12px; margin-bottom: 24px; }

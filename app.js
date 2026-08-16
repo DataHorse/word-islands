@@ -1,5 +1,5 @@
 /* =========================================================
-   Word Islands — app.js
+   Word Islands — app.js  (v2)
    Vanilla JS, no build step, fully offline after first load.
    ========================================================= */
 (function(){
@@ -9,6 +9,7 @@
   var PAGES = [1,2,3,4,5,6,7,8,9,10];
   var ISLAND_COLORS = {1:'--island-1',2:'--island-2',3:'--island-3',4:'--island-4',5:'--island-5',
                         6:'--island-6',7:'--island-7',8:'--island-8',9:'--island-9',10:'--island-10'};
+  var MASTERY_THRESHOLD = 3; // net correct answers (tier) needed to count a word as mastered
 
   var byPage = {};
   var byId = {};
@@ -25,6 +26,7 @@
   /* ---------------- storage ---------------- */
   var PROGRESS_KEY = 'fw_progress_v1';
   var META_KEY = 'fw_meta_v1';
+  var SPEED_KEY = 'fw_speedread_v1';
 
   function loadProgress(){
     try{ return JSON.parse(localStorage.getItem(PROGRESS_KEY)) || {}; }catch(e){ return {}; }
@@ -34,14 +36,18 @@
     try{ return JSON.parse(localStorage.getItem(META_KEY)) || {stars:0}; }catch(e){ return {stars:0}; }
   }
   function saveMeta(m){ localStorage.setItem(META_KEY, JSON.stringify(m)); }
+  function loadSpeed(){
+    try{ return JSON.parse(localStorage.getItem(SPEED_KEY)) || {}; }catch(e){ return {}; }
+  }
+  function saveSpeed(s){ localStorage.setItem(SPEED_KEY, JSON.stringify(s)); }
 
   function getEntry(progress, id){
     return progress[id] || {tier:0, correct:0, incorrect:0, seen:0, lastSeen:0};
   }
-  function isMastered(entry){ return entry.tier >= 4; }
+  function isMastered(entry){ return entry.tier >= MASTERY_THRESHOLD; }
   function isStruggling(entry){
     var attempts = entry.correct + entry.incorrect;
-    return attempts >= 2 && (entry.incorrect > entry.correct || entry.tier <= 1);
+    return attempts >= 2 && (entry.incorrect > entry.correct || entry.tier === 0);
   }
 
   function recordAnswer(id, correct){
@@ -51,7 +57,8 @@
     e.lastSeen = Date.now();
     if(correct){
       e.correct += 1;
-      e.tier = Math.min(4, e.tier + 1);
+      e.tier = Math.min(MASTERY_THRESHOLD, e.tier + 1);
+      addStars(1);
     } else {
       e.incorrect += 1;
       e.tier = Math.max(0, e.tier - 1);
@@ -68,7 +75,7 @@
     saveProgress(progress);
   }
   function addStars(n){
-    var m = loadMeta(); m.stars = (m.stars||0) + n; saveMeta(m); return m.stars;
+    var m = loadMeta(); m.stars = Math.max(0, (m.stars||0) + n); saveMeta(m); return m.stars;
   }
 
   function pageStats(p){
@@ -93,34 +100,10 @@
     return a;
   }
   function sample(arr, n){ return shuffle(arr).slice(0, Math.min(n, arr.length)); }
-  function weightedSample(words, n){
-    var progress = loadProgress();
-    var pool = words.map(function(w){
-      var e = getEntry(progress, w.id);
-      var weight = (5 - e.tier) + (e.seen===0 ? 2 : 0);
-      return {w:w, weight: Math.max(weight, 0.5)};
-    });
-    var chosen = [];
-    var attempts = 0;
-    while(chosen.length < Math.min(n, words.length) && attempts < 2000){
-      attempts++;
-      var totalWeight = pool.reduce(function(s,x){return s+x.weight;},0);
-      var r = Math.random() * totalWeight;
-      var acc = 0;
-      for(var i=0;i<pool.length;i++){
-        acc += pool[i].weight;
-        if(r <= acc){
-          chosen.push(pool[i].w);
-          pool.splice(i,1);
-          break;
-        }
-      }
-    }
-    return chosen;
-  }
   function esc(s){
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+  function jsQuote(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
   function speak(text){
     if(!('speechSynthesis' in window)) return;
     try{
@@ -135,42 +118,60 @@
     if(re.test(sentence)) return sentence.replace(re, '<span class="blank">&nbsp;</span>');
     return sentence + ' <span class="blank">&nbsp;</span>';
   }
+  function fmtTime(seconds){
+    var s = Math.max(0, seconds);
+    var m = Math.floor(s/60);
+    var rem = (s - m*60);
+    return (m>0 ? m+':'+(rem<10?'0':'')+rem.toFixed(1) : rem.toFixed(1)+'s');
+  }
 
   /* ---------------- router ---------------- */
   var state = { parentUnlocked:false, session:null, test:null };
 
-  function navigate(hash){ window.location.hash = hash; }
+  function navigate(hash){
+    if(window.location.hash === hash){ render(); } else { window.location.hash = hash; }
+  }
   window.addEventListener('hashchange', render);
   window.addEventListener('load', render);
+
+  var CATEGORIES = {
+    learn:    {icon:'\ud83d\udcd6', label:'Learn',         sub:'Flip cards',              needsPage:true},
+    spell:    {icon:'\u270f\ufe0f', label:'Spell It',       sub:'Build the word',          needsPage:true},
+    meaning:  {icon:'\ud83e\udd14', label:'What Means?',    sub:'Pick the meaning',        needsPage:true},
+    sentence: {icon:'\ud83d\udcdd', label:'Fill In',        sub:'Complete the sentence',   needsPage:true},
+    sameopp:  {icon:'\u2696\ufe0f', label:'Same/Opposite',  sub:'Compare words',           needsPage:true},
+    speedread:{icon:'\u23f1\ufe0f', label:'Speed Read',     sub:'Time yourself reading',   needsPage:true},
+    spellmix: {icon:'\ud83c\udfb2', label:'Mix It Up',      sub:'Spelling, any list',      needsPage:false}
+  };
 
   function render(){
     var hash = window.location.hash || '#/';
     var parts = hash.replace('#/','').split('/').filter(Boolean);
     window.scrollTo(0,0);
     if(parts.length===0) return renderHome();
-    if(parts[0]==='list') return renderPageMenu(parseInt(parts[1],10));
+    if(parts[0]==='pages') return renderPageSelect(parts[1]);
     if(parts[0]==='play') return startSession(parseInt(parts[1],10), parts[2]);
+    if(parts[0]==='speed' && parts[1]) return renderSpeedRead(parseInt(parts[1],10));
+    if(parts[0]==='spellmix') return renderSpellMixConfig();
     if(parts[0]==='parent' && !parts[1]) return renderParentGate();
     if(parts[0]==='parent' && parts[1]==='dash') return state.parentUnlocked ? renderDashboard() : renderParentGate();
     if(parts[0]==='parent' && parts[1]==='test') return state.parentUnlocked ? renderTestConfig() : renderParentGate();
     return renderHome();
   }
 
-  /* ---------------- HOME ---------------- */
+  /* ---------------- HOME (categories) ---------------- */
   function renderHome(){
     var meta = loadMeta();
     var totalMastered = 0;
     PAGES.forEach(function(p){ totalMastered += pageStats(p).mastered; });
 
-    var islandsHtml = PAGES.map(function(p, idx){
-      var stats = pageStats(p);
-      var pct = Math.round(100*stats.mastered/stats.total);
-      var badge = stats.mastered===stats.total ? '<span class="island__badge">\u2605</span>' : '';
-      return '' +
-      '<button class="island" onclick="App.navigate(\'#/list/'+p+'\')" aria-label="'+esc(listNameFor[p])+', '+pct+' percent mastered">' +
-        '<div class="island__blob" style="background:var('+ISLAND_COLORS[p]+')">'+p+badge+'</div>' +
-        '<div class="island__label">'+esc(listNameFor[p])+'</div>' +
-        '<div class="island__progress">'+stats.mastered+'/'+stats.total+' \u2b50</div>' +
+    var cardsHtml = Object.keys(CATEGORIES).map(function(key){
+      var c = CATEGORIES[key];
+      var href = key==='spellmix' ? '#/spellmix' : '#/pages/'+key;
+      return '<button class="mode-card" onclick="App.navigate(\''+href+'\')">' +
+        '<div class="mode-card__icon">'+c.icon+'</div>' +
+        '<div class="mode-card__label">'+c.label+'</div>' +
+        '<div class="mode-card__sub">'+c.sub+'</div>' +
       '</button>';
     }).join('');
 
@@ -181,62 +182,56 @@
       '</div>' +
       '<div class="hero">' +
         '<h1>Hi Aadya! Ready to explore?</h1>' +
-        '<p>You have mastered '+totalMastered+' of 1000 words. Tap an island to practice!</p>' +
+        '<p>You have mastered '+totalMastered+' of 1000 words. Pick a game to start!</p>' +
       '</div>' +
-      '<div class="trail-wrap"><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:22px 10px;justify-items:center;padding:0 18px;">'+islandsHtml+'</div></div>' +
+      '<div class="screen"><div class="mode-grid">'+cardsHtml+'</div></div>' +
       '<button class="parent-link" onclick="App.navigate(\'#/parent\')">Parent area</button>';
   }
 
-  /* ---------------- PAGE MENU ---------------- */
-  var MODE_INFO = {
-    learn:   {icon:'\ud83d\udcd6', label:'Learn', sub:'Flip cards'},
-    spell:   {icon:'\u270f\ufe0f', label:'Spell It', sub:'Build the word'},
-    meaning: {icon:'\ud83e\udd14', label:'What Means?', sub:'Pick the meaning'},
-    sentence:{icon:'\ud83d\udcdd', label:'Fill In', sub:'Complete the sentence'},
-    sameopp: {icon:'\u2696\ufe0f', label:'Same or Opposite', sub:'Compare words'}
-  };
+  /* ---------------- PAGE SELECT (islands) ---------------- */
+  function renderPageSelect(mode){
+    var cat = CATEGORIES[mode];
+    if(!cat){ return renderHome(); }
+    var speed = loadSpeed();
 
-  function renderPageMenu(p){
-    if(!byPage[p]) return renderHome();
-    var stats = pageStats(p);
-    var words = byPage[p];
-    var specialCount = words.filter(function(w){ return (w.synonyms&&w.synonyms.length) || (w.antonyms&&w.antonyms.length); }).length;
-
-    var modes = ['learn','spell','meaning','sentence'];
-    if(specialCount >= 4) modes.push('sameopp');
-
-    var modesHtml = modes.map(function(m){
-      var info = MODE_INFO[m];
-      return '<button class="mode-card" onclick="App.navigate(\'#/play/'+p+'/'+m+'\')">' +
-        '<div class="mode-card__icon">'+info.icon+'</div>' +
-        '<div class="mode-card__label">'+info.label+'</div>' +
-        '<div class="mode-card__sub">'+info.sub+'</div>' +
+    var islandsHtml = PAGES.map(function(p){
+      var subtitle;
+      if(mode==='speedread'){
+        var best = speed[p];
+        subtitle = '<div class="island__progress">'+(best!==undefined ? '\u23f1 '+fmtTime(best) : 'No time yet')+'</div>';
+      } else {
+        var stats = pageStats(p);
+        subtitle = '<div class="island__progress">'+stats.mastered+'/'+stats.total+' \u2b50</div>';
+      }
+      var dest = mode==='speedread' ? '#/speed/'+p : '#/play/'+p+'/'+mode;
+      return '' +
+      '<button class="island" onclick="App.navigate(\''+dest+'\')">' +
+        '<div class="island__blob" style="background:var('+ISLAND_COLORS[p]+')">'+p+'</div>' +
+        '<div class="island__label">'+esc(listNameFor[p])+'</div>' +
+        subtitle +
       '</button>';
     }).join('');
 
     $('#app').innerHTML =
       '<div class="screen">' +
-        '<button class="back-btn" onclick="App.navigate(\'#/\')">\u2190 Islands</button>' +
-        '<div class="page-header">' +
-          '<div class="page-header__blob" style="background:var('+ISLAND_COLORS[p]+')">'+p+'</div>' +
-          '<div><h2>'+esc(listNameFor[p])+'</h2><div class="dash-sub">'+stats.mastered+' of '+stats.total+' words mastered</div></div>' +
+        '<button class="back-btn" onclick="App.navigate(\'#/\')">\u2190 Games</button>' +
+        '<div class="hero" style="padding-left:0;padding-right:0;">' +
+          '<h1 style="font-size:22px;">'+cat.icon+' '+cat.label+'</h1>' +
+          '<p>Choose a list to practice</p>' +
         '</div>' +
-        '<div class="progress-track"><div class="progress-fill" style="width:'+Math.round(100*stats.mastered/stats.total)+'%;background:var('+ISLAND_COLORS[p]+')"></div></div>' +
-        '<div class="mode-grid">'+modesHtml+'</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:22px 10px;">'+islandsHtml+'</div>' +
       '</div>';
   }
 
-  /* ---------------- SESSION ENGINE ---------------- */
-  var SESSION_LEN = 10;
-
+  /* ---------------- SESSION ENGINE (practice — covers ALL words in the list) ---------------- */
   function startSession(p, mode){
-    if(!byPage[p] || !MODE_INFO[mode]) return renderHome();
+    if(!byPage[p] || !CATEGORIES[mode] || mode==='speedread' || mode==='spellmix') return renderHome();
     var words = byPage[p];
     var pool = words;
     if(mode==='sameopp'){
       pool = words.filter(function(w){ return (w.synonyms&&w.synonyms.length)||(w.antonyms&&w.antonyms.length); });
     }
-    var picks = mode==='learn' ? sample(pool, Math.min(SESSION_LEN, pool.length)) : weightedSample(pool, Math.min(SESSION_LEN, pool.length));
+    var picks = shuffle(pool);
     state.session = { page:p, mode:mode, words:picks, index:0, correct:0, incorrect:0, starsEarned:0 };
     renderQuestion();
   }
@@ -244,7 +239,9 @@
   function sessionProgressBar(){
     var s = state.session;
     var pct = Math.round(100*s.index/s.words.length);
-    return '<div class="progress-track"><div class="progress-fill" style="width:'+pct+'%"></div></div>';
+    return '<div class="progress-track"><div class="progress-fill" style="width:'+pct+'%"></div></div>' +
+      '<div class="dash-sub" style="text-align:center;margin-bottom:14px;">Word '+(s.index+1)+' of '+s.words.length+
+      (s.mode!=='learn' ? ' \u00b7 '+s.correct+' correct' : '') + '</div>';
   }
 
   function renderQuestion(){
@@ -258,7 +255,7 @@
     if(s.mode==='sameopp') return renderSameOppQuestion(w);
   }
 
-  function wrapGame(inner, showBack){
+  function wrapGame(inner){
     $('#app').innerHTML =
       '<div class="game-wrap">' +
         '<button class="back-btn" onclick="App.exitSession()">\u2190 Exit practice</button>' +
@@ -268,16 +265,14 @@
       '<div id="feedback" class="feedback-banner"></div>';
   }
 
-  function showFeedback(correct, message, onNext){
+  function showFeedback(correct, message){
     var el = $('#feedback');
     el.className = 'feedback-banner show ' + (correct?'correct':'incorrect');
-    el.innerHTML = '<span>'+message+'</span><button class="btn btn--ghost btn--sm" style="color:#fff;border-color:rgba(255,255,255,.5)" onclick="App.nextQuestion()">Next \u2192</button>';
-    window._pendingNext = onNext;
+    el.innerHTML = '<span>'+message+'</span><button class="btn-next" onclick="App.nextQuestion()">Next <span aria-hidden="true">\u2192</span></button>';
   }
 
   window.App = window.App || {};
   App.nextQuestion = function(){
-    if(window._pendingNext) window._pendingNext();
     state.session.index += 1;
     renderQuestion();
   };
@@ -294,7 +289,7 @@
       '<div class="flip-card" id="flipcard" onclick="App.flipCard()">' +
         '<div class="flip-card__inner">' +
           '<div class="flip-face flip-face--front">' +
-            '<button class="speak-btn" onclick="event.stopPropagation(); App.speakWord(\''+esc(w.word).replace(/'/g,"\\'")+'\')">\ud83d\udd0a</button>' +
+            '<button class="speak-btn" onclick="event.stopPropagation(); App.speakWord(\''+jsQuote(w.word)+'\')">\ud83d\udd0a</button>' +
             '<div class="flip-word">'+esc(w.word)+'</div>' +
             '<div class="flip-hint">Tap to see the meaning</div>' +
           '</div>' +
@@ -319,7 +314,7 @@
     renderQuestion();
   };
 
-  /* --- Spell mode --- */
+  /* --- Spell mode (also used by Mix It Up) --- */
   var spellState = null;
   function renderSpellQuestion(w){
     var letters = w.word.split('');
@@ -331,7 +326,7 @@
         '<div class="dash-sub">Spell this word:</div>' +
         '<div style="font-size:18px;margin:8px 0;">'+esc(w.definition)+'</div>' +
         '<div class="sentence-blank">'+blank+'</div>' +
-        '<button class="btn btn--teal btn--sm" style="margin-top:10px" onclick="App.speakWord(\''+esc(w.word).replace(/'/g,"\\'")+'\')">\ud83d\udd0a Hear it</button>' +
+        '<button class="btn btn--teal btn--sm" style="margin-top:10px" onclick="App.speakWord(\''+jsQuote(w.word)+'\')">\ud83d\udd0a Hear it</button>' +
       '</div>' +
       '<div id="answerSlots" class="tile-row"></div>' +
       '<div id="tileBank" class="tile-bank"></div>' +
@@ -369,9 +364,9 @@
     var attempt = spellState.filled.map(function(i){ return spellState.tiles[i].ch; }).join('');
     var correct = attempt.toLowerCase() === spellState.word.word.toLowerCase();
     recordAnswer(spellState.word.id, correct);
-    if(correct){ state.session.correct++; state.session.starsEarned++; addStars(1); }
+    if(correct){ state.session.correct++; state.session.starsEarned++; }
     else state.session.incorrect++;
-    showFeedback(correct, correct ? 'Great spelling! \u2b50' : 'Correct spelling: '+spellState.word.word);
+    showFeedback(correct, correct ? 'Great spelling! \u2b50' : 'Correct spelling: '+esc(spellState.word.word));
   };
 
   /* --- Meaning match mode --- */
@@ -383,7 +378,7 @@
       '<div class="question-prompt">' +
         '<div class="dash-sub">What does this word mean?</div>' +
         '<div class="big-word">'+esc(w.word)+'</div>' +
-        '<button class="btn btn--teal btn--sm" style="margin-top:10px" onclick="App.speakWord(\''+esc(w.word).replace(/'/g,"\\'")+'\')">\ud83d\udd0a Hear it</button>' +
+        '<button class="btn btn--teal btn--sm" style="margin-top:10px" onclick="App.speakWord(\''+jsQuote(w.word)+'\')">\ud83d\udd0a Hear it</button>' +
       '</div>' +
       '<div class="choice-grid" id="choices">' +
         choices.map(function(c){ return '<button class="choice-btn" onclick="App.meaningPick(this, '+ (c===w.definition) +')">'+esc(c)+'</button>'; }).join('') +
@@ -396,7 +391,7 @@
     document.querySelectorAll('#choices .choice-btn').forEach(function(b){ b.onclick=null; });
     btn.classList.add(correct?'correct':'incorrect');
     recordAnswer(w.id, correct);
-    if(correct){ state.session.correct++; state.session.starsEarned++; addStars(1); }
+    if(correct){ state.session.correct++; state.session.starsEarned++; }
     else {
       state.session.incorrect++;
       document.querySelectorAll('#choices .choice-btn').forEach(function(b){
@@ -428,14 +423,14 @@
     document.querySelectorAll('#choices .choice-btn').forEach(function(b){ b.onclick=null; });
     btn.classList.add(correct?'correct':'incorrect');
     recordAnswer(w.id, correct);
-    if(correct){ state.session.correct++; state.session.starsEarned++; addStars(1); }
+    if(correct){ state.session.correct++; state.session.starsEarned++; }
     else {
       state.session.incorrect++;
       document.querySelectorAll('#choices .choice-btn').forEach(function(b){
         if(b.textContent === w.word) b.classList.add('correct');
       });
     }
-    showFeedback(correct, correct ? 'Perfect! \u2b50' : 'The right word was "'+w.word+'"');
+    showFeedback(correct, correct ? 'Perfect! \u2b50' : 'The right word was "'+esc(w.word)+'"');
   };
 
   /* --- Same/Opposite mode --- */
@@ -462,7 +457,7 @@
     document.querySelectorAll('#choices .choice-btn').forEach(function(b){ b.onclick=null; });
     btn.classList.add(correct?'correct':'incorrect');
     recordAnswer(ctx.w.id, correct);
-    if(correct){ state.session.correct++; state.session.starsEarned++; addStars(1); }
+    if(correct){ state.session.correct++; state.session.starsEarned++; }
     else state.session.incorrect++;
     showFeedback(correct, correct ? 'You got it! \u2b50' : 'It was '+ctx.correctAnswer+'.');
   };
@@ -471,6 +466,7 @@
   function renderSessionSummary(){
     var s = state.session;
     var totalAnswered = s.correct + s.incorrect;
+    var backHref = s.page==='mixed' ? '#/spellmix' : '#/pages/'+s.mode;
     $('#app').innerHTML =
       '<div class="game-wrap">' +
         '<div class="card summary-card">' +
@@ -481,12 +477,104 @@
             '<div class="summary-stat"><span>Stars earned</span><span>\u2b50 '+s.starsEarned+'</span></div>'
             : '<div class="summary-stat"><span>Words reviewed</span><span>'+s.words.length+'</span></div>') +
           '<div style="display:flex;gap:10px;margin-top:20px;">' +
-            '<button class="btn btn--ghost btn--block" onclick="App.navigate(\'#/list/'+s.page+'\')">More games</button>' +
-            '<button class="btn btn--block" onclick="App.navigate(\'#/\')">Islands map</button>' +
+            '<button class="btn btn--ghost btn--block" onclick="App.navigate(\''+backHref+'\')">More games</button>' +
+            '<button class="btn btn--block" onclick="App.navigate(\'#/\')">Home</button>' +
           '</div>' +
         '</div>' +
       '</div>';
   }
+
+  /* ---------------- SPEED READ ---------------- */
+  var speedState = null;
+  function renderSpeedRead(p){
+    if(!byPage[p]) return renderHome();
+    var best = loadSpeed()[p];
+    speedState = { page:p, running:false, startTs:0, timerId:null };
+    $('#app').innerHTML =
+      '<div class="screen">' +
+        '<button class="back-btn" onclick="App.navigate(\'#/pages/speedread\')">\u2190 Speed Read</button>' +
+        '<div class="hero" style="padding-left:0;padding-right:0;">' +
+          '<h1 style="font-size:22px;">\u23f1\ufe0f '+esc(listNameFor[p])+'</h1>' +
+          '<p>Tap Start, read all 100 words out loud, then tap Stop.</p>' +
+          (best!==undefined ? '<p style="margin-top:6px;font-weight:700;color:var(--teal-deep)">Best time: '+fmtTime(best)+'</p>' : '') +
+        '</div>' +
+        '<div id="speedTimer" style="text-align:center;font-family:var(--font-display);font-weight:800;font-size:40px;margin:10px 0 20px;">0.0s</div>' +
+        '<div style="text-align:center;margin-bottom:20px;">' +
+          '<button class="btn btn--lg" id="speedBtn" onclick="App.speedToggle()">\u25b6\ufe0f Start</button>' +
+        '</div>' +
+        '<div id="speedGrid" class="card" style="display:none;"></div>' +
+      '</div>';
+  }
+  function speedGridHtml(p){
+    var words = byPage[p];
+    return '<div style="display:grid;grid-auto-flow:column;grid-template-rows:repeat(25,auto);grid-template-columns:repeat(4,1fr);gap:6px 14px;font-size:15px;font-weight:700;">' +
+      words.map(function(w){ return '<div>'+esc(w.word)+'</div>'; }).join('') +
+      '</div>';
+  }
+  App.speedToggle = function(){
+    if(!speedState.running){
+      speedState.running = true;
+      speedState.startTs = Date.now();
+      $('#speedGrid').style.display = 'block';
+      $('#speedGrid').innerHTML = speedGridHtml(speedState.page);
+      $('#speedBtn').textContent = '\u23f9\ufe0f Stop';
+      speedState.timerId = setInterval(function(){
+        var el = $('#speedTimer');
+        if(el) el.textContent = fmtTime((Date.now()-speedState.startTs)/1000);
+      }, 100);
+    } else {
+      speedState.running = false;
+      clearInterval(speedState.timerId);
+      var elapsedSec = (Date.now()-speedState.startTs)/1000;
+      var speeds = loadSpeed();
+      var isBest = speeds[speedState.page]===undefined || elapsedSec < speeds[speedState.page];
+      if(isBest){ speeds[speedState.page] = elapsedSec; saveSpeed(speeds); }
+      renderSpeedResult(speedState.page, elapsedSec, isBest);
+    }
+  };
+  function renderSpeedResult(p, elapsedSec, isBest){
+    $('#app').innerHTML =
+      '<div class="screen">' +
+        '<div class="card summary-card">' +
+          '<div class="summary-stars">'+(isBest?'\ud83c\udfc6':'\u23f1\ufe0f')+'</div>' +
+          '<h2>'+(isBest?'New best time!':'Time recorded')+'</h2>' +
+          '<div class="summary-stat"><span>This try</span><span>'+fmtTime(elapsedSec)+'</span></div>' +
+          '<div class="summary-stat"><span>Best time</span><span>'+fmtTime(loadSpeed()[p])+'</span></div>' +
+          '<div style="display:flex;gap:10px;margin-top:20px;">' +
+            '<button class="btn btn--ghost btn--block" onclick="App.navigate(\'#/speed/'+p+'\')">Try again</button>' +
+            '<button class="btn btn--block" onclick="App.navigate(\'#/pages/speedread\')">Choose list</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  /* ---------------- MIX IT UP (spelling, any list) ---------------- */
+  function renderSpellMixConfig(){
+    $('#app').innerHTML =
+      '<div class="screen">' +
+        '<button class="back-btn" onclick="App.navigate(\'#/\')">\u2190 Games</button>' +
+        '<div class="hero" style="padding-left:0;padding-right:0;">' +
+          '<h1 style="font-size:22px;">\ud83c\udfb2 Mix It Up</h1>' +
+          '<p>Spelling practice with random words from all 10 lists.</p>' +
+        '</div>' +
+        '<div class="test-config">' +
+          '<select class="form-select" id="mixCount">' +
+            '<option value="10">10 words</option>' +
+            '<option value="20" selected>20 words</option>' +
+            '<option value="30">30 words</option>' +
+            '<option value="50">50 words</option>' +
+            '<option value="100">100 words</option>' +
+          '</select>' +
+        '</div>' +
+        '<button class="btn btn--block btn--lg" onclick="App.beginSpellMix()">Start</button>' +
+      '</div>';
+  }
+  App.beginSpellMix = function(){
+    var n = parseInt($('#mixCount').value, 10);
+    var picks = sample(WORDS, n);
+    state.session = { page:'mixed', mode:'spell', words:picks, index:0, correct:0, incorrect:0, starsEarned:0 };
+    renderQuestion();
+  };
 
   /* ---------------- PARENT AREA ---------------- */
   function renderParentGate(){
@@ -522,6 +610,7 @@
       var s = pageStats(p);
       var pct = Math.round(100*s.mastered/s.total);
       var strugglingNames = s.strugglingWords.slice(0,8).map(function(w){return esc(w.word);}).join(', ');
+      var best = loadSpeed()[p];
       return '' +
       '<div class="dash-row">' +
         '<div class="dash-row__top">' +
@@ -529,7 +618,7 @@
           '<div class="dash-sub">'+s.mastered+'/'+s.total+' mastered</div>' +
         '</div>' +
         '<div class="dash-row__bar"><div class="dash-row__bar-fill" style="width:'+pct+'%;background:var('+ISLAND_COLORS[p]+')"></div></div>' +
-        '<div class="dash-row__meta">'+s.seen+' words practiced \u00b7 '+s.struggling+' currently struggling</div>' +
+        '<div class="dash-row__meta">'+s.seen+' words practiced \u00b7 '+s.struggling+' currently struggling'+(best!==undefined?' \u00b7 best read: '+fmtTime(best):'')+'</div>' +
         (strugglingNames ? '<div class="struggling-list">Struggling: '+strugglingNames+(s.strugglingWords.length>8?'\u2026':'')+'</div>' : '') +
         '<div class="row-actions">' +
           '<button class="btn btn--ghost btn--sm" onclick="App.confirmReset('+p+')">Reset this list</button>' +
@@ -541,7 +630,7 @@
       '<div class="dash">' +
         '<button class="back-btn" onclick="App.navigate(\'#/\')">\u2190 Kid view</button>' +
         '<h2>Aadya\u2019s Progress</h2>' +
-        '<div class="dash-sub">Overview across all 1000 words</div>' +
+        '<div class="dash-sub">A word counts as "mastered" once she\u2019s answered it correctly '+MASTERY_THRESHOLD+' more times than she\u2019s missed it.</div>' +
         '<div class="stat-grid">' +
           '<div class="stat-card"><div class="stat-card__num">'+totalMastered+'</div><div class="stat-card__label">Mastered</div></div>' +
           '<div class="stat-card"><div class="stat-card__num">'+totalSeen+'</div><div class="stat-card__label">Practiced</div></div>' +
@@ -557,7 +646,7 @@
       '<div class="modal-backdrop" id="resetModal">' +
         '<div class="modal">' +
           '<h3>Reset '+esc(listNameFor[p])+'?</h3>' +
-          '<p>This clears all mastery progress for these 100 words. This can\u2019t be undone.</p>' +
+          '<p>This clears all mastery progress (and its stars) for these 100 words. This can\u2019t be undone.</p>' +
           '<div class="modal-actions">' +
             '<button class="btn btn--ghost" onclick="App.closeModal()">Cancel</button>' +
             '<button class="btn" style="background:var(--coral-deep)" onclick="App.doReset('+p+')">Reset</button>' +
@@ -569,8 +658,14 @@
   App.closeModal = function(){ var m=$('#resetModal'); if(m) m.remove(); };
   App.doReset = function(p){
     var progress = loadProgress();
-    byPage[p].forEach(function(w){ delete progress[w.id]; });
+    var starsToRemove = 0;
+    byPage[p].forEach(function(w){
+      var e = progress[w.id];
+      if(e) starsToRemove += (e.correct || 0);
+      delete progress[w.id];
+    });
     saveProgress(progress);
+    if(starsToRemove > 0) addStars(-starsToRemove);
     App.closeModal();
     renderDashboard();
   };
@@ -608,7 +703,6 @@
     var t = state.test;
     if(t.index >= t.words.length) return renderTestResults();
     var w = t.words[t.index];
-    // alternate spelling and meaning questions for a well-rounded quick check
     var isSpelling = t.index % 2 === 0;
     var pct = Math.round(100*t.index/t.words.length);
     var header = '<div class="game-wrap"><button class="back-btn" onclick="App.navigate(\'#/parent/dash\')">\u2190 End test</button>' +
