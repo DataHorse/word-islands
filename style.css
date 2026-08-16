@@ -80,6 +80,7 @@ p{ margin:0; }
   padding: max(14px, env(safe-area-inset-top)) 18px 10px;
 }
 .topbar__title{ font-size: 22px; font-weight:700; }
+.topbar__right{ display:flex; align-items:center; gap:10px; }
 .topbar__stars{
   display:flex; align-items:center; gap:6px;
   background: var(--white); border-radius: 999px; padding:6px 14px;
@@ -173,12 +174,6 @@ p{ margin:0; }
 .cat-banner__title{ font-family: var(--font-display); font-weight:800; font-size:20px; }
 .cat-banner__sub{ font-size:13px; opacity:0.92; margin-top:2px; }
 
-.parent-link{
-  display:block; margin: 6px auto 18px; text-align:center;
-  color: var(--ink-soft); font-size:13px; text-decoration:underline;
-  background:none; border:none; padding:10px;
-}
-
 /* ---------- Cards / buttons ---------- */
 .card{
   background: var(--white); border-radius: var(--radius-lg);
@@ -199,7 +194,7 @@ p{ margin:0; }
 .btn:disabled{ opacity:.45; cursor:default; }
 
 /* ---------- List / page screen ---------- */
-.screen{ max-width: 720px; margin: 0 auto; padding: max(14px, env(safe-area-inset-top)) 18px 56px; }
+.screen{ max-width: 720px; margin: 0 auto; padding: max(14px, env(safe-area-inset-top)) 18px 24px; }
 .page-header{ display:flex; align-items:center; gap:14px; padding: 10px 0 18px; }
 .page-header__blob{
   width:56px; height:56px; border-radius: 46% 54% 58% 42% / 48% 44% 56% 52%;
@@ -207,7 +202,7 @@ p{ margin:0; }
   font-family: var(--font-display); font-weight:800; font-size:18px; flex-shrink:0;
 }
 /* ---------- Game screens ---------- */
-.game-wrap{ max-width: 640px; margin:0 auto; padding: max(14px, env(safe-area-inset-top)) 18px 56px; }
+.game-wrap{ max-width: 640px; margin:0 auto; padding: max(14px, env(safe-area-inset-top)) 18px 24px; }
 .progress-track{
   height:10px; background: var(--paper-deep); border-radius:999px; overflow:hidden; margin-bottom:18px;
 }
@@ -287,9 +282,9 @@ p{ margin:0; }
 .btn-next:active{ background: rgba(255,255,255,0.35); }
 
 .app-footer{
-  position:fixed; left:0; right:0; bottom: max(6px, env(safe-area-inset-bottom));
   text-align:center; font-size:11px; color: var(--ink-soft); opacity:0.6;
-  pointer-events:none; z-index:5; font-family: var(--font-body); letter-spacing:.2px;
+  font-family: var(--font-body); letter-spacing:.2px;
+  padding: 18px 0 max(14px, env(safe-area-inset-bottom));
 }
 
 /* ---------- Session summary ---------- */
@@ -299,7 +294,7 @@ p{ margin:0; }
 .summary-stat:last-child{ border-bottom:none; }
 
 /* ---------- Parent gate & dashboard ---------- */
-.gate-wrap{ max-width:420px; margin: 20px auto 0; padding: max(50px, calc(env(safe-area-inset-top) + 36px)) 20px 56px; text-align:center; }
+.gate-wrap{ max-width:420px; margin: 20px auto 0; padding: max(50px, calc(env(safe-area-inset-top) + 36px)) 20px 10px; text-align:center; }
 .gate-icon{ font-size:40px; margin-bottom:6px; }
 .gate-math{ font-family: var(--font-display); font-size:36px; font-weight:800; margin: 18px 0; }
 .gate-input{
@@ -307,7 +302,7 @@ p{ margin:0; }
   padding:10px; border-radius: var(--radius-sm); border:2px solid var(--paper-deep); margin-bottom:16px;
 }
 
-.dash{ max-width: 860px; margin:0 auto; padding: max(20px, env(safe-area-inset-top)) 18px 76px; }
+.dash{ max-width: 860px; margin:0 auto; padding: max(20px, env(safe-area-inset-top)) 18px 24px; }
 .dash h2{ font-size:22px; margin-bottom:4px; }
 .dash-sub{ color: var(--ink-soft); font-size:14px; margin-bottom:20px; }
 .stat-grid{ display:grid; grid-template-columns: repeat(3,1fr); gap:12px; margin-bottom: 24px; }

@@ -198,7 +198,10 @@
     $('#app').innerHTML =
       '<div class="topbar">' +
         '<div class="topbar__title">\ud83c\udf34 Word Islands</div>' +
-        '<div class="topbar__stars">\u2b50 '+ (meta.stars||0) +'</div>' +
+        '<div class="topbar__right">' +
+          '<button class="iconbtn" onclick="App.navigate(\'#/parent\')" aria-label="Parent area">\ud83d\udc6a</button>' +
+          '<div class="topbar__stars">\u2b50 '+ (meta.stars||0) +'</div>' +
+        '</div>' +
       '</div>' +
       '<div class="hero-wrap">' +
         heroBannerSvg() +
@@ -208,7 +211,6 @@
         '</div>' +
       '</div>' +
       '<div class="screen"><div class="mode-grid">'+cardsHtml+'</div></div>' +
-      '<button class="parent-link" onclick="App.navigate(\'#/parent\')">Parent area</button>' +
       footerHtml();
   }
 
