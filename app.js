@@ -124,6 +124,9 @@
     var rem = (s - m*60);
     return (m>0 ? m+':'+(rem<10?'0':'')+rem.toFixed(1) : rem.toFixed(1)+'s');
   }
+  function footerHtml(){
+    return '<div class="app-footer">\u00a9 Aadya Thanniru</div>';
+  }
 
   /* ---------------- router ---------------- */
   var state = { parentUnlocked:false, session:null, test:null };
@@ -145,20 +148,19 @@
   };
 
   function heroBannerSvg(){
-    return '<svg class="hero-banner" viewBox="0 0 400 130" preserveAspectRatio="none" aria-hidden="true">' +
+    return '<svg class="hero-banner" viewBox="0 0 400 190" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' +
       '<defs>' +
         '<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">' +
           '<stop offset="0%" stop-color="#8FE0E8"/><stop offset="100%" stop-color="#BFEFEA"/>' +
         '</linearGradient>' +
       '</defs>' +
-      '<rect width="400" height="130" fill="url(#sky)"/>' +
-      '<circle cx="336" cy="30" r="22" fill="var(--sun)"/>' +
-      '<ellipse cx="70" cy="34" rx="34" ry="14" fill="#ffffff" opacity="0.85"/>' +
-      '<ellipse cx="100" cy="26" rx="24" ry="11" fill="#ffffff" opacity="0.85"/>' +
-      '<ellipse cx="200" cy="20" rx="26" ry="10" fill="#ffffff" opacity="0.7"/>' +
-      '<path d="M0,90 Q40,60 80,85 T160,80 T240,90 T320,78 T400,88 V130 H0 Z" fill="var(--island-3)" opacity="0.55"/>' +
-      '<path d="M0,105 Q50,85 100,102 T200,100 T300,105 T400,98 V130 H0 Z" fill="var(--teal)"/>' +
-      '<path d="M0,118 Q60,105 120,118 T240,116 T360,120 T400,115 V130 H0 Z" fill="var(--teal-deep)"/>' +
+      '<rect width="400" height="190" fill="url(#sky)"/>' +
+      '<circle cx="336" cy="32" r="24" fill="var(--sun)"/>' +
+      '<ellipse cx="60" cy="30" rx="30" ry="12" fill="#ffffff" opacity="0.8"/>' +
+      '<ellipse cx="88" cy="24" rx="20" ry="10" fill="#ffffff" opacity="0.8"/>' +
+      '<path d="M0,132 Q40,102 80,127 T160,122 T240,132 T320,120 T400,130 V190 H0 Z" fill="var(--island-3)" opacity="0.55"/>' +
+      '<path d="M0,148 Q50,128 100,145 T200,143 T300,148 T400,140 V190 H0 Z" fill="var(--teal)"/>' +
+      '<path d="M0,162 Q60,148 120,161 T240,159 T360,163 T400,158 V190 H0 Z" fill="var(--teal-deep)"/>' +
     '</svg>';
   }
 
@@ -198,13 +200,16 @@
         '<div class="topbar__title">\ud83c\udf34 Word Islands</div>' +
         '<div class="topbar__stars">\u2b50 '+ (meta.stars||0) +'</div>' +
       '</div>' +
-      heroBannerSvg() +
-      '<div class="hero-textwrap">' +
-        '<h1>Hi Aadya! Ready to explore?</h1>' +
-        '<p>You have mastered '+totalMastered+' of 1000 words. Pick a game to start!</p>' +
+      '<div class="hero-wrap">' +
+        heroBannerSvg() +
+        '<div class="hero-textwrap">' +
+          '<h1>Hi Aadya! Ready to explore?</h1>' +
+          '<p>You have mastered '+totalMastered+' of 1000 words. Pick a game to start!</p>' +
+        '</div>' +
       '</div>' +
       '<div class="screen"><div class="mode-grid">'+cardsHtml+'</div></div>' +
-      '<button class="parent-link" onclick="App.navigate(\'#/parent\')">Parent area</button>';
+      '<button class="parent-link" onclick="App.navigate(\'#/parent\')">Parent area</button>' +
+      footerHtml();
   }
 
   /* ---------------- PAGE SELECT (islands) ---------------- */
@@ -234,12 +239,13 @@
     $('#app').innerHTML =
       '<div class="screen">' +
         '<button class="back-btn" onclick="App.navigate(\'#/\')">\u2190 Games</button>' +
-        '<div class="hero" style="padding-left:0;padding-right:0;">' +
-          '<h1 style="font-size:22px;">'+cat.icon+' '+cat.label+'</h1>' +
-          '<p>Choose a list to practice</p>' +
+        '<div class="cat-banner" style="background:linear-gradient(160deg, '+cat.c1+', '+cat.c2+');color:'+cat.text+'">' +
+          '<div class="cat-banner__icon">'+cat.icon+'</div>' +
+          '<div><div class="cat-banner__title">'+cat.label+'</div><div class="cat-banner__sub">Choose a list to practice</div></div>' +
         '</div>' +
         '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:22px 10px;">'+islandsHtml+'</div>' +
-      '</div>';
+      '</div>' +
+      footerHtml();
   }
 
   /* ---------------- SESSION ENGINE (practice — covers ALL words in the list) ---------------- */
@@ -258,7 +264,8 @@
   function sessionProgressBar(){
     var s = state.session;
     var pct = Math.round(100*s.index/s.words.length);
-    return '<div class="progress-track"><div class="progress-fill" style="width:'+pct+'%"></div></div>' +
+    var color = (CATEGORIES[s.mode] && CATEGORIES[s.mode].c2) || 'var(--teal)';
+    return '<div class="progress-track"><div class="progress-fill" style="width:'+pct+'%;background:'+color+'"></div></div>' +
       '<div class="dash-sub" style="text-align:center;margin-bottom:14px;">Word '+(s.index+1)+' of '+s.words.length+
       (s.mode!=='learn' ? ' \u00b7 '+s.correct+' correct' : '') + '</div>';
   }
@@ -281,7 +288,8 @@
         sessionProgressBar() +
         inner +
       '</div>' +
-      '<div id="feedback" class="feedback-banner"></div>';
+      '<div id="feedback" class="feedback-banner"></div>' +
+      footerHtml();
   }
 
   function showFeedback(correct, message){
@@ -486,21 +494,23 @@
     var s = state.session;
     var totalAnswered = s.correct + s.incorrect;
     var backHref = s.page==='mixed' ? '#/spellmix' : '#/pages/'+s.mode;
+    var cat = CATEGORIES[s.mode] || {c1:'#4FD4C6', c2:'var(--teal-deep)', text:'#fff'};
     $('#app').innerHTML =
       '<div class="game-wrap">' +
-        '<div class="card summary-card">' +
+        '<div class="card summary-card" style="background:linear-gradient(160deg, '+cat.c1+', '+cat.c2+');color:'+cat.text+'">' +
           '<div class="summary-stars">\ud83c\udf89</div>' +
-          '<h2>Great job, Aadya!</h2>' +
+          '<h2 style="color:'+cat.text+'">Great job, Aadya!</h2>' +
           (totalAnswered>0 ?
             '<div class="summary-stat"><span>Correct</span><span>'+s.correct+' / '+totalAnswered+'</span></div>' +
             '<div class="summary-stat"><span>Stars earned</span><span>\u2b50 '+s.starsEarned+'</span></div>'
             : '<div class="summary-stat"><span>Words reviewed</span><span>'+s.words.length+'</span></div>') +
           '<div style="display:flex;gap:10px;margin-top:20px;">' +
             '<button class="btn btn--ghost btn--block" onclick="App.navigate(\''+backHref+'\')">More games</button>' +
-            '<button class="btn btn--block" onclick="App.navigate(\'#/\')">Home</button>' +
+            '<button class="btn btn--block" style="background:rgba(255,255,255,0.28);color:'+cat.text+'" onclick="App.navigate(\'#/\')">Home</button>' +
           '</div>' +
         '</div>' +
-      '</div>';
+      '</div>' +
+      footerHtml();
   }
 
   /* ---------------- SPEED READ ---------------- */
@@ -512,17 +522,18 @@
     $('#app').innerHTML =
       '<div class="screen">' +
         '<button class="back-btn" onclick="App.navigate(\'#/pages/speedread\')">\u2190 Speed Read</button>' +
-        '<div class="hero" style="padding-left:0;padding-right:0;">' +
-          '<h1 style="font-size:22px;">\u23f1\ufe0f '+esc(listNameFor[p])+'</h1>' +
-          '<p>Tap Start, read all 100 words out loud, then tap Stop.</p>' +
-          (best!==undefined ? '<p style="margin-top:6px;font-weight:700;color:var(--teal-deep)">Best time: '+fmtTime(best)+'</p>' : '') +
+        '<div class="cat-banner" style="background:linear-gradient(160deg, #FFAD6B, var(--ember-deep));color:#fff">' +
+          '<div class="cat-banner__icon">\u23f1\ufe0f</div>' +
+          '<div><div class="cat-banner__title">'+esc(listNameFor[p])+'</div><div class="cat-banner__sub">Tap Start, read all 100 words, then tap Stop</div></div>' +
         '</div>' +
-        '<div id="speedTimer" style="text-align:center;font-family:var(--font-display);font-weight:800;font-size:40px;margin:10px 0 20px;">0.0s</div>' +
+        (best!==undefined ? '<p style="text-align:center;margin-top:-10px;margin-bottom:16px;font-weight:700;color:var(--ember-deep)">\ud83c\udfc6 Best time: '+fmtTime(best)+'</p>' : '') +
+        '<div id="speedTimer" style="text-align:center;font-family:var(--font-display);font-weight:800;font-size:44px;margin:10px 0 20px;color:var(--ember-deep)">0.0s</div>' +
         '<div style="text-align:center;margin-bottom:20px;">' +
-          '<button class="btn btn--lg" id="speedBtn" onclick="App.speedToggle()">\u25b6\ufe0f Start</button>' +
+          '<button class="btn btn--lg" id="speedBtn" style="background:var(--ember)" onclick="App.speedToggle()">\u25b6\ufe0f Start</button>' +
         '</div>' +
         '<div id="speedGrid" class="card" style="display:none;"></div>' +
-      '</div>';
+      '</div>' +
+      footerHtml();
   }
   function speedGridHtml(p){
     var words = byPage[p];
@@ -554,17 +565,18 @@
   function renderSpeedResult(p, elapsedSec, isBest){
     $('#app').innerHTML =
       '<div class="screen">' +
-        '<div class="card summary-card">' +
+        '<div class="card summary-card" style="background:linear-gradient(160deg, #FFAD6B, var(--ember-deep));color:#fff">' +
           '<div class="summary-stars">'+(isBest?'\ud83c\udfc6':'\u23f1\ufe0f')+'</div>' +
-          '<h2>'+(isBest?'New best time!':'Time recorded')+'</h2>' +
+          '<h2 style="color:#fff">'+(isBest?'New best time!':'Time recorded')+'</h2>' +
           '<div class="summary-stat"><span>This try</span><span>'+fmtTime(elapsedSec)+'</span></div>' +
           '<div class="summary-stat"><span>Best time</span><span>'+fmtTime(loadSpeed()[p])+'</span></div>' +
           '<div style="display:flex;gap:10px;margin-top:20px;">' +
             '<button class="btn btn--ghost btn--block" onclick="App.navigate(\'#/speed/'+p+'\')">Try again</button>' +
-            '<button class="btn btn--block" onclick="App.navigate(\'#/pages/speedread\')">Choose list</button>' +
+            '<button class="btn btn--block" style="background:rgba(255,255,255,0.28);color:#fff" onclick="App.navigate(\'#/pages/speedread\')">Choose list</button>' +
           '</div>' +
         '</div>' +
-      '</div>';
+      '</div>' +
+      footerHtml();
   }
 
   /* ---------------- MIX IT UP (spelling, any list) ---------------- */
@@ -572,9 +584,9 @@
     $('#app').innerHTML =
       '<div class="screen">' +
         '<button class="back-btn" onclick="App.navigate(\'#/\')">\u2190 Games</button>' +
-        '<div class="hero" style="padding-left:0;padding-right:0;">' +
-          '<h1 style="font-size:22px;">\ud83c\udfb2 Mix It Up</h1>' +
-          '<p>Spelling practice with random words from all 10 lists.</p>' +
+        '<div class="cat-banner" style="background:linear-gradient(160deg, #F094D6, var(--magenta-deep));color:#fff">' +
+          '<div class="cat-banner__icon">\ud83c\udfb2</div>' +
+          '<div><div class="cat-banner__title">Mix It Up</div><div class="cat-banner__sub">Spelling practice, random words from all 10 lists</div></div>' +
         '</div>' +
         '<div class="test-config">' +
           '<select class="form-select" id="mixCount">' +
@@ -585,8 +597,9 @@
             '<option value="100">100 words</option>' +
           '</select>' +
         '</div>' +
-        '<button class="btn btn--block btn--lg" onclick="App.beginSpellMix()">Start</button>' +
-      '</div>';
+        '<button class="btn btn--block btn--lg" style="background:var(--magenta)" onclick="App.beginSpellMix()">Start</button>' +
+      '</div>' +
+      footerHtml();
   }
   App.beginSpellMix = function(){
     var n = parseInt($('#mixCount').value, 10);
@@ -603,13 +616,15 @@
     $('#app').innerHTML =
       '<div class="gate-wrap">' +
         '<button class="back-btn" onclick="App.navigate(\'#/\')">\u2190 Back</button>' +
+        '<div class="gate-icon">\ud83d\udd12</div>' +
         '<h2>Parent Area</h2>' +
         '<p style="color:var(--ink-soft);margin-top:8px;">Quick check so this stays a parent-only area.</p>' +
         '<div class="gate-math">'+a+' \u00d7 '+b+' = ?</div>' +
         '<input type="number" inputmode="numeric" class="gate-input" id="gateInput">' +
         '<div id="gateError" style="color:var(--coral-deep);min-height:20px;font-size:13px;"></div>' +
         '<button class="btn btn--block" onclick="App.checkGate()">Enter</button>' +
-      '</div>';
+      '</div>' +
+      footerHtml();
   }
   App.checkGate = function(){
     var val = parseInt($('#gateInput').value, 10);
@@ -652,13 +667,14 @@
         '<h2>Aadya\u2019s Progress</h2>' +
         '<div class="dash-sub">A word counts as "mastered" once she\u2019s answered it correctly '+MASTERY_THRESHOLD+' more times than she\u2019s missed it.</div>' +
         '<div class="stat-grid">' +
-          '<div class="stat-card"><div class="stat-card__num">'+totalMastered+'</div><div class="stat-card__label">Mastered</div></div>' +
-          '<div class="stat-card"><div class="stat-card__num">'+totalSeen+'</div><div class="stat-card__label">Practiced</div></div>' +
-          '<div class="stat-card"><div class="stat-card__num">'+totalStruggling+'</div><div class="stat-card__label">Struggling</div></div>' +
+          '<div class="stat-card"><div class="stat-card__num" style="color:var(--leaf-deep)">'+totalMastered+'</div><div class="stat-card__label">Mastered</div></div>' +
+          '<div class="stat-card"><div class="stat-card__num" style="color:var(--teal-deep)">'+totalSeen+'</div><div class="stat-card__label">Practiced</div></div>' +
+          '<div class="stat-card"><div class="stat-card__num" style="color:var(--coral-deep)">'+totalStruggling+'</div><div class="stat-card__label">Struggling</div></div>' +
         '</div>' +
         '<button class="btn btn--teal btn--block" style="margin-bottom:20px;" onclick="App.navigate(\'#/parent/test\')">\u270f\ufe0f Create a quick test</button>' +
         rowsHtml +
-      '</div>';
+      '</div>' +
+      footerHtml();
   }
 
   App.confirmReset = function(p){
@@ -718,8 +734,10 @@
     $('#app').innerHTML =
       '<div class="dash">' +
         '<button class="back-btn" onclick="App.navigate(\'#/parent/dash\')">\u2190 Dashboard</button>' +
-        '<h2>Quick Test</h2>' +
-        '<div class="dash-sub">Pick a list and how many words to test.</div>' +
+        '<div class="cat-banner" style="background:linear-gradient(160deg, #4FD4C6, var(--teal-deep));color:#fff">' +
+          '<div class="cat-banner__icon">\u270f\ufe0f</div>' +
+          '<div><div class="cat-banner__title">Quick Test</div><div class="cat-banner__sub">Pick a list and how many words to test</div></div>' +
+        '</div>' +
         '<div class="test-config">' +
           '<select class="form-select" id="testPage">'+options+'</select>' +
           '<select class="form-select" id="testCount">' +
@@ -729,8 +747,9 @@
             '<option value="20">20 words</option>' +
           '</select>' +
         '</div>' +
-        '<button class="btn btn--block btn--lg" onclick="App.beginTest()">Start Test</button>' +
-      '</div>';
+        '<button class="btn btn--teal btn--block btn--lg" onclick="App.beginTest()">Start Test</button>' +
+      '</div>' +
+      footerHtml();
   }
 
   App.beginTest = function(){
@@ -762,7 +781,8 @@
         '<div style="display:flex;gap:10px;justify-content:center;margin-top:18px;">' +
           '<button class="btn btn--ghost" onclick="App.spellBackspace()">\u232b Delete</button>' +
           '<button class="btn btn--leaf" id="spellSubmit" onclick="App.testSpellSubmit()" disabled>Check</button>' +
-        '</div></div>';
+        '</div></div>' +
+        footerHtml();
       renderSpellTiles();
     } else {
       var others = byPage[w.page].filter(function(x){ return x.id!==w.id; });
@@ -773,7 +793,8 @@
         '<div class="big-word">'+esc(w.word)+'</div></div>' +
         '<div class="choice-grid" id="choices">' +
           choices.map(function(c){ return '<button class="choice-btn" onclick="App.testMeaningPick(this, '+(c===w.definition)+')">'+esc(c)+'</button>'; }).join('') +
-        '</div></div>';
+        '</div></div>' +
+        footerHtml();
     }
     window._currentTestWord = w;
   }
@@ -808,15 +829,16 @@
         '<h2>Test Results</h2>' +
         '<div class="dash-sub">'+listNameFor[t.page]+'</div>' +
         '<div class="stat-grid" style="grid-template-columns:1fr 1fr;">' +
-          '<div class="stat-card"><div class="stat-card__num">'+correctCount+'/'+t.results.length+'</div><div class="stat-card__label">Score</div></div>' +
-          '<div class="stat-card"><div class="stat-card__num">'+Math.round(100*correctCount/t.results.length)+'%</div><div class="stat-card__label">Accuracy</div></div>' +
+          '<div class="stat-card"><div class="stat-card__num" style="color:var(--leaf-deep)">'+correctCount+'/'+t.results.length+'</div><div class="stat-card__label">Score</div></div>' +
+          '<div class="stat-card"><div class="stat-card__num" style="color:var(--teal-deep)">'+Math.round(100*correctCount/t.results.length)+'%</div><div class="stat-card__label">Accuracy</div></div>' +
         '</div>' +
         '<div class="dash-row">'+rowsHtml+'</div>' +
         '<div style="display:flex;gap:10px;margin-top:16px;">' +
           '<button class="btn btn--ghost btn--block" onclick="App.navigate(\'#/parent/test\')">New test</button>' +
           '<button class="btn btn--block" onclick="App.navigate(\'#/parent/dash\')">Dashboard</button>' +
         '</div>' +
-      '</div>';
+      '</div>' +
+      footerHtml();
   }
 
   render();
