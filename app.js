@@ -135,14 +135,32 @@
   window.addEventListener('load', render);
 
   var CATEGORIES = {
-    learn:    {icon:'\ud83d\udcd6', label:'Learn',         sub:'Flip cards',              needsPage:true},
-    spell:    {icon:'\u270f\ufe0f', label:'Spell It',       sub:'Build the word',          needsPage:true},
-    meaning:  {icon:'\ud83e\udd14', label:'What Means?',    sub:'Pick the meaning',        needsPage:true},
-    sentence: {icon:'\ud83d\udcdd', label:'Fill In',        sub:'Complete the sentence',   needsPage:true},
-    sameopp:  {icon:'\u2696\ufe0f', label:'Same/Opposite',  sub:'Compare words',           needsPage:true},
-    speedread:{icon:'\u23f1\ufe0f', label:'Speed Read',     sub:'Time yourself reading',   needsPage:true},
-    spellmix: {icon:'\ud83c\udfb2', label:'Mix It Up',      sub:'Spelling, any list',      needsPage:false}
+    learn:    {icon:'\ud83d\udcd6', label:'Learn',         sub:'Flip cards',              needsPage:true,  c1:'#4FD4C6', c2:'var(--teal-deep)',    text:'#fff'},
+    spell:    {icon:'\u270f\ufe0f', label:'Spell It',       sub:'Build the word',          needsPage:true,  c1:'#FF9C8C', c2:'var(--coral-deep)',   text:'#fff'},
+    meaning:  {icon:'\ud83e\udd14', label:'What Means?',    sub:'Pick the meaning',        needsPage:true,  c1:'#FFD873', c2:'var(--sun)',          text:'var(--ink)'},
+    sentence: {icon:'\ud83d\udcdd', label:'Fill In',        sub:'Complete the sentence',   needsPage:true,  c1:'#78D89B', c2:'var(--leaf-deep)',    text:'#fff'},
+    sameopp:  {icon:'\u2696\ufe0f', label:'Same/Opposite',  sub:'Compare words',           needsPage:true,  c1:'#A79AE6', c2:'var(--purple-deep)',  text:'#fff'},
+    speedread:{icon:'\u23f1\ufe0f', label:'Speed Read',     sub:'Time yourself reading',   needsPage:true,  c1:'#FFAD6B', c2:'var(--ember-deep)',   text:'#fff'},
+    spellmix: {icon:'\ud83c\udfb2', label:'Mix It Up',      sub:'Spelling, any list',      needsPage:false, c1:'#F094D6', c2:'var(--magenta-deep)', text:'#fff'}
   };
+
+  function heroBannerSvg(){
+    return '<svg class="hero-banner" viewBox="0 0 400 130" preserveAspectRatio="none" aria-hidden="true">' +
+      '<defs>' +
+        '<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">' +
+          '<stop offset="0%" stop-color="#8FE0E8"/><stop offset="100%" stop-color="#BFEFEA"/>' +
+        '</linearGradient>' +
+      '</defs>' +
+      '<rect width="400" height="130" fill="url(#sky)"/>' +
+      '<circle cx="336" cy="30" r="22" fill="var(--sun)"/>' +
+      '<ellipse cx="70" cy="34" rx="34" ry="14" fill="#ffffff" opacity="0.85"/>' +
+      '<ellipse cx="100" cy="26" rx="24" ry="11" fill="#ffffff" opacity="0.85"/>' +
+      '<ellipse cx="200" cy="20" rx="26" ry="10" fill="#ffffff" opacity="0.7"/>' +
+      '<path d="M0,90 Q40,60 80,85 T160,80 T240,90 T320,78 T400,88 V130 H0 Z" fill="var(--island-3)" opacity="0.55"/>' +
+      '<path d="M0,105 Q50,85 100,102 T200,100 T300,105 T400,98 V130 H0 Z" fill="var(--teal)"/>' +
+      '<path d="M0,118 Q60,105 120,118 T240,116 T360,120 T400,115 V130 H0 Z" fill="var(--teal-deep)"/>' +
+    '</svg>';
+  }
 
   function render(){
     var hash = window.location.hash || '#/';
@@ -168,8 +186,8 @@
     var cardsHtml = Object.keys(CATEGORIES).map(function(key){
       var c = CATEGORIES[key];
       var href = key==='spellmix' ? '#/spellmix' : '#/pages/'+key;
-      return '<button class="mode-card" onclick="App.navigate(\''+href+'\')">' +
-        '<div class="mode-card__icon">'+c.icon+'</div>' +
+      return '<button class="mode-card" style="background:linear-gradient(160deg, '+c.c1+', '+c.c2+');color:'+c.text+'" onclick="App.navigate(\''+href+'\')">' +
+        '<div class="mode-card__icon-badge">'+c.icon+'</div>' +
         '<div class="mode-card__label">'+c.label+'</div>' +
         '<div class="mode-card__sub">'+c.sub+'</div>' +
       '</button>';
@@ -180,7 +198,8 @@
         '<div class="topbar__title">\ud83c\udf34 Word Islands</div>' +
         '<div class="topbar__stars">\u2b50 '+ (meta.stars||0) +'</div>' +
       '</div>' +
-      '<div class="hero">' +
+      heroBannerSvg() +
+      '<div class="hero-textwrap">' +
         '<h1>Hi Aadya! Ready to explore?</h1>' +
         '<p>You have mastered '+totalMastered+' of 1000 words. Pick a game to start!</p>' +
       '</div>' +
@@ -622,6 +641,7 @@
         (strugglingNames ? '<div class="struggling-list">Struggling: '+strugglingNames+(s.strugglingWords.length>8?'\u2026':'')+'</div>' : '') +
         '<div class="row-actions">' +
           '<button class="btn btn--ghost btn--sm" onclick="App.confirmReset('+p+')">Reset this list</button>' +
+          (best!==undefined ? '<button class="btn btn--ghost btn--sm" onclick="App.confirmResetSpeed('+p+')">Reset best time</button>' : '') +
         '</div>' +
       '</div>';
     }).join('');
@@ -666,6 +686,28 @@
     });
     saveProgress(progress);
     if(starsToRemove > 0) addStars(-starsToRemove);
+    App.closeModal();
+    renderDashboard();
+  };
+
+  App.confirmResetSpeed = function(p){
+    $('#app').insertAdjacentHTML('beforeend',
+      '<div class="modal-backdrop" id="resetModal">' +
+        '<div class="modal">' +
+          '<h3>Reset best time for '+esc(listNameFor[p])+'?</h3>' +
+          '<p>This clears the saved Speed Read record for this list. This can\u2019t be undone.</p>' +
+          '<div class="modal-actions">' +
+            '<button class="btn btn--ghost" onclick="App.closeModal()">Cancel</button>' +
+            '<button class="btn" style="background:var(--coral-deep)" onclick="App.doResetSpeed('+p+')">Reset</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  };
+  App.doResetSpeed = function(p){
+    var speeds = loadSpeed();
+    delete speeds[p];
+    saveSpeed(speeds);
     App.closeModal();
     renderDashboard();
   };

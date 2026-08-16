@@ -1,6 +1,6 @@
 // Word Islands — offline cache
 // Bump this version any time app files change so the new files get cached.
-var CACHE_NAME = 'word-islands-v2';
+var CACHE_NAME = 'word-islands-v3';
 var CORE_ASSETS = [
   './',
   './index.html',
